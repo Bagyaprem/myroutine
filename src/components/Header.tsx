@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { PenIcon, CalendarIcon, MessageCircleIcon, LogOutIcon } from "lucide-react";
+import { PenIcon, CalendarIcon, MessageCircleIcon, LogOutIcon, SettingsIcon } from "lucide-react";
 import { formatDate } from '@/utils/dateUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -24,8 +24,12 @@ const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
     navigate('/');
   };
 
+  const handleSettingsClick = () => {
+    navigate('/settings');
+  };
+
   return (
-    <header className="border-b border-border py-4 px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+    <header className="border-b border-border py-4 px-6 bg-white/80 dark:bg-gray-900/90 backdrop-blur-md sticky top-0 z-10">
       <div className="flex justify-between items-center max-w-7xl mx-auto">
         <div className="flex items-center">
           <h1 className="text-2xl font-serif font-bold text-foreground mr-2">
@@ -72,6 +76,9 @@ const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               <span className="text-sm text-muted-foreground">
                 {user.email}
               </span>
+              <Button variant="ghost" size="icon" onClick={handleSettingsClick} className="text-muted-foreground">
+                <SettingsIcon className="h-4 w-4" />
+              </Button>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOutIcon className="h-4 w-4 mr-2" />
                 Sign Out
