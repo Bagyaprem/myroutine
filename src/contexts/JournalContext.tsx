@@ -14,6 +14,7 @@ export interface JournalEntry {
   type: 'text' | 'audio' | 'video';
   mediaUrl?: string;
   summary?: string;
+  wallpaper?: string;
 }
 
 interface JournalContextType {
@@ -25,7 +26,17 @@ interface JournalContextType {
   deleteEntry: (id: string) => Promise<void>;
   getEntryForDate: (date: Date) => JournalEntry | undefined;
   loading: boolean;
+  wallpapers: string[];
 }
+
+// Predefined wallpaper options
+const DEFAULT_WALLPAPERS = [
+  'gradient-blue',
+  'gradient-purple',
+  'gradient-pink',
+  'gradient-peach',
+  'gradient-gray'
+];
 
 const JournalContext = createContext<JournalContextType | undefined>(undefined);
 
@@ -33,6 +44,7 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [currentEntry, setCurrentEntry] = useState<JournalEntry | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [wallpapers, setWallpapers] = useState<string[]>(DEFAULT_WALLPAPERS);
   const { user } = useAuth();
 
   // Fetch entries from Supabase when user is authenticated
@@ -61,15 +73,15 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
           content: entry.content || "",
           title: entry.title,
           tags: entry.tags || [],
-          type: 'text',
-          mediaUrl: '',
-          summary: ''
+          type: entry.type || 'text',
+          mediaUrl: entry.media_url || '',
+          summary: entry.summary || '',
+          wallpaper: entry.wallpaper || 'gradient-blue'
         }));
 
         setEntries(journalEntries);
       } catch (error) {
         console.error("Error fetching journal entries:", error);
-        // Use toast function directly without title and description properties
         toast.error("Failed to load journal entries");
       } finally {
         setLoading(false);
@@ -81,7 +93,6 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addEntry = async (entryData: Omit<JournalEntry, "id">) => {
     if (!user) {
-      // Fix toast usage
       toast.error("You must be logged in to save entries");
       throw new Error("Not authenticated");
     }
@@ -94,7 +105,11 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
           user_id: user.id,
           title: entryData.title,
           content: entryData.content,
-          tags: entryData.tags
+          tags: entryData.tags,
+          type: entryData.type,
+          media_url: entryData.mediaUrl,
+          summary: entryData.summary,
+          wallpaper: entryData.wallpaper || 'gradient-blue'
         })
         .select()
         .single();
@@ -111,7 +126,6 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return newEntry;
     } catch (error) {
       console.error("Error saving entry:", error);
-      // Fix toast usage
       toast.error("Failed to save journal entry");
       throw error;
     }
@@ -119,7 +133,6 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateEntry = async (updatedEntry: JournalEntry) => {
     if (!user) {
-      // Fix toast usage
       toast.error("You must be logged in to update entries");
       throw new Error("Not authenticated");
     }
@@ -132,6 +145,10 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
           title: updatedEntry.title,
           content: updatedEntry.content,
           tags: updatedEntry.tags,
+          type: updatedEntry.type,
+          media_url: updatedEntry.mediaUrl,
+          summary: updatedEntry.summary,
+          wallpaper: updatedEntry.wallpaper,
           updated_at: new Date().toISOString()
         })
         .eq('id', updatedEntry.id)
@@ -150,7 +167,6 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } catch (error) {
       console.error("Error updating entry:", error);
-      // Fix toast usage
       toast.error("Failed to update journal entry");
       throw error;
     }
@@ -158,7 +174,6 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteEntry = async (id: string) => {
     if (!user) {
-      // Fix toast usage
       toast.error("You must be logged in to delete entries");
       throw new Error("Not authenticated");
     }
@@ -180,7 +195,6 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } catch (error) {
       console.error("Error deleting entry:", error);
-      // Fix toast usage
       toast.error("Failed to delete journal entry");
       throw error;
     }
@@ -202,7 +216,8 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateEntry,
         deleteEntry,
         getEntryForDate,
-        loading
+        loading,
+        wallpapers
       }}
     >
       {children}

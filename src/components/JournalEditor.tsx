@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useJournal, JournalEntry } from '@/contexts/JournalContext';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +14,24 @@ import {
   Trash2Icon,
   MicIcon,
   VideoIcon,
-  Loader2Icon
+  Loader2Icon,
+  ImageIcon,
+  StopCircleIcon
 } from 'lucide-react';
 import { formatDate } from '@/utils/dateUtils';
 import { generateJournalPrompt } from '@/lib/aiService';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { MediaRecorderHelper, uploadMediaToStorage, getMediaPreview } from '@/utils/mediaUtils';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface JournalEditorProps {
   isNew?: boolean;
@@ -30,7 +42,7 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
   isNew = false, 
   onSave 
 }) => {
-  const { currentEntry, addEntry, updateEntry, deleteEntry } = useJournal();
+  const { currentEntry, addEntry, updateEntry, deleteEntry, wallpapers } = useJournal();
   const { user } = useAuth();
   
   const [title, setTitle] = useState("");
@@ -39,6 +51,13 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
   const [tagInput, setTagInput] = useState("");
   const [prompt, setPrompt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string>("");
+  const [entryType, setEntryType] = useState<'text' | 'audio' | 'video'>('text');
+  const [isRecording, setIsRecording] = useState(false);
+  const [wallpaper, setWallpaper] = useState<string>("gradient-blue");
+  
+  const recorderRef = useRef<MediaRecorderHelper | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
   
   // Initialize form with current entry data if editing
   useEffect(() => {
@@ -46,11 +65,17 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
       setTitle(currentEntry.title);
       setContent(currentEntry.content);
       setTags([...currentEntry.tags]);
+      setEntryType(currentEntry.type);
+      setMediaUrl(currentEntry.mediaUrl || "");
+      setWallpaper(currentEntry.wallpaper || "gradient-blue");
     } else {
       // Reset form if creating new entry
       setTitle("");
       setContent("");
       setTags([]);
+      setEntryType('text');
+      setMediaUrl("");
+      setWallpaper("gradient-blue");
     }
   }, [currentEntry, isNew]);
   
@@ -87,6 +112,76 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   };
 
+  const startRecording = async (type: 'audio' | 'video') => {
+    if (!user) {
+      toast.error("You must be logged in to record");
+      return;
+    }
+    
+    try {
+      recorderRef.current = new MediaRecorderHelper({
+        onDataAvailable: (blob) => {
+          // This gets called with chunks during recording
+          console.log("Data chunk available", blob.size);
+        },
+        onStart: () => {
+          setIsRecording(true);
+          toast.info(`${type === 'audio' ? 'Audio' : 'Video'} recording started`);
+          
+          // If video, show preview
+          if (type === 'video' && videoPreviewRef.current && recorderRef.current?.stream) {
+            videoPreviewRef.current.srcObject = recorderRef.current.stream;
+            videoPreviewRef.current.play();
+          }
+        },
+        onStop: () => {
+          setIsRecording(false);
+          toast.info(`${type === 'audio' ? 'Audio' : 'Video'} recording stopped`);
+          
+          // Clear video preview
+          if (videoPreviewRef.current) {
+            videoPreviewRef.current.srcObject = null;
+          }
+        }
+      });
+      
+      if (type === 'audio') {
+        await recorderRef.current.startAudioRecording();
+        setEntryType('audio');
+      } else {
+        await recorderRef.current.startVideoRecording();
+        setEntryType('video');
+      }
+    } catch (error) {
+      console.error(`Failed to start ${type} recording:`, error);
+      toast.error(`Could not start ${type} recording. Please check permissions.`);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recorderRef.current) return;
+    
+    try {
+      recorderRef.current.stop();
+      const blob = recorderRef.current.getBlob();
+      
+      if (blob && user) {
+        setIsLoading(true);
+        toast.info("Uploading media...");
+        
+        const url = await uploadMediaToStorage(blob, user.id, entryType);
+        setMediaUrl(url);
+        
+        toast.success("Media uploaded successfully");
+      }
+    } catch (error) {
+      console.error("Error processing recording:", error);
+      toast.error("Failed to process recording");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       toast.error("Please enter a title for your entry");
@@ -106,7 +201,9 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
         content,
         date: new Date(),
         tags,
-        type: 'text' as const
+        type: entryType,
+        mediaUrl,
+        wallpaper
       };
       
       if (currentEntry && !isNew) {
@@ -146,7 +243,13 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div 
+      className={`space-y-6 animate-fade-up p-6 rounded-lg border ${wallpaper === 'gradient-blue' ? 'bg-journal-blue/30' : 
+      wallpaper === 'gradient-purple' ? 'bg-journal-purple/30' : 
+      wallpaper === 'gradient-pink' ? 'bg-journal-pink/30' :
+      wallpaper === 'gradient-peach' ? 'bg-journal-peach/30' : 
+      'bg-journal-gray/30'}`}
+    >
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-serif font-medium">
@@ -158,24 +261,41 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
         </div>
         
         <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="icon"
-            title="Record Audio"
-            className="h-9 w-9"
-            disabled
-          >
-            <MicIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            title="Record Video"
-            className="h-9 w-9"
-            disabled
-          >
-            <VideoIcon className="h-4 w-4" />
-          </Button>
+          {!isRecording ? (
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                title="Record Audio"
+                className="h-9 w-9"
+                onClick={() => startRecording('audio')}
+                disabled={isRecording || isLoading}
+              >
+                <MicIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                title="Record Video"
+                className="h-9 w-9"
+                onClick={() => startRecording('video')}
+                disabled={isRecording || isLoading}
+              >
+                <VideoIcon className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="destructive"
+              size="sm"
+              title="Stop Recording"
+              className="animate-pulse flex items-center"
+              onClick={stopRecording}
+            >
+              <StopCircleIcon className="h-4 w-4 mr-1" />
+              Stop Recording
+            </Button>
+          )}
         </div>
       </div>
 
@@ -183,6 +303,29 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
         <div className="bg-journal-purple/30 p-4 rounded-lg">
           <p className="text-sm font-medium">Today's prompt:</p>
           <p className="text-base italic">{prompt}</p>
+        </div>
+      )}
+
+      {entryType === 'video' && videoPreviewRef.current && (
+        <div className="relative rounded-lg overflow-hidden border bg-black">
+          <video 
+            ref={videoPreviewRef} 
+            className="w-full h-64 object-cover" 
+            autoPlay 
+            muted 
+            playsInline
+          />
+          {isRecording && (
+            <div className="absolute top-2 right-2">
+              <div className="bg-red-500 rounded-full h-3 w-3 animate-pulse"></div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {mediaUrl && !isRecording && (
+        <div className="rounded-lg overflow-hidden border">
+          {getMediaPreview(mediaUrl, entryType)}
         </div>
       )}
 
@@ -196,6 +339,46 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
             onChange={(e) => setTitle(e.target.value)}
             className="focus-ring"
           />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="wallpaper">Wallpaper</Label>
+          <Select 
+            value={wallpaper} 
+            onValueChange={setWallpaper}
+          >
+            <SelectTrigger className="focus-ring">
+              <SelectValue placeholder="Select a wallpaper" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Wallpapers</SelectLabel>
+                <SelectItem value="gradient-blue">Blue</SelectItem>
+                <SelectItem value="gradient-purple">Purple</SelectItem>
+                <SelectItem value="gradient-pink">Pink</SelectItem>
+                <SelectItem value="gradient-peach">Peach</SelectItem>
+                <SelectItem value="gradient-gray">Gray</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          
+          <div className="grid grid-cols-5 gap-2 mt-2">
+            {wallpapers.map(wp => (
+              <div 
+                key={wp} 
+                onClick={() => setWallpaper(wp)}
+                className={`h-8 rounded-md cursor-pointer transition-all duration-200 ${
+                  wallpaper === wp ? 'ring-2 ring-primary ring-offset-2' : 'hover:scale-105'
+                } ${
+                  wp === 'gradient-blue' ? 'bg-journal-blue' : 
+                  wp === 'gradient-purple' ? 'bg-journal-purple' :
+                  wp === 'gradient-pink' ? 'bg-journal-pink' :
+                  wp === 'gradient-peach' ? 'bg-journal-peach' :
+                  'bg-journal-gray'
+                }`}
+              />
+            ))}
+          </div>
         </div>
 
         <div className="space-y-2">
