@@ -1,4 +1,3 @@
-// mediaUtils.tsx
 
 interface MediaRecorderOptions {
   onDataAvailable: (data: Blob) => void;
@@ -34,9 +33,9 @@ export class MediaRecorderHelper {
 
   async startVideoRecording(): Promise<void> {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
+      this.stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
       });
       await this.setupRecorder();
     } catch (error) {
@@ -48,29 +47,29 @@ export class MediaRecorderHelper {
 
   private async setupRecorder(): Promise<void> {
     if (!this.stream) return;
-
+    
     this.chunks = [];
     this.mediaRecorder = new MediaRecorder(this.stream);
-
+    
     this.mediaRecorder.ondataavailable = (e) => {
       if (e.data.size > 0) {
         this.chunks.push(e.data);
         this.options.onDataAvailable(e.data);
       }
     };
-
+    
     this.mediaRecorder.onstart = () => {
       this.options.onStart?.();
     };
-
+    
     this.mediaRecorder.onstop = () => {
-      const blob = new Blob(this.chunks, {
-        type: this.mediaRecorder?.mimeType || 'audio/webm',
+      const blob = new Blob(this.chunks, { 
+        type: this.mediaRecorder?.mimeType || 'audio/webm' 
       });
       this.options.onDataAvailable(blob);
       this.options.onStop?.();
     };
-
+    
     this.mediaRecorder.start(this.options.timeSlice);
   }
 
@@ -78,44 +77,44 @@ export class MediaRecorderHelper {
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
       this.mediaRecorder.stop();
     }
-
+    
     if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;
     }
   }
 
   getBlob(): Blob | null {
     if (this.chunks.length === 0) return null;
-    return new Blob(this.chunks, {
-      type: this.mediaRecorder?.mimeType || 'audio/webm',
+    return new Blob(this.chunks, { 
+      type: this.mediaRecorder?.mimeType || 'audio/webm' 
     });
   }
 }
 
 export const uploadMediaToStorage = async (
-  file: Blob,
-  userId: string,
+  file: Blob, 
+  userId: string, 
   type: 'audio' | 'video'
 ): Promise<string> => {
   try {
     const { supabase } = await import('@/integrations/supabase/client');
     const fileExt = type === 'audio' ? 'webm' : 'mp4';
     const fileName = `${userId}/${type}_${Date.now()}.${fileExt}`;
-
-    const { error } = await supabase.storage
+    
+    const { error, data } = await supabase.storage
       .from('journal-media')
       .upload(fileName, file, {
         contentType: type === 'audio' ? 'audio/webm' : 'video/mp4',
-        upsert: false,
+        upsert: false
       });
 
     if (error) throw error;
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('journal-media').getPublicUrl(fileName);
-
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from('journal-media')
+      .getPublicUrl(fileName);
+      
     return publicUrl;
   } catch (error) {
     console.error(`Error uploading ${type}:`, error);
@@ -123,12 +122,9 @@ export const uploadMediaToStorage = async (
   }
 };
 
-export const getMediaPreview = (
-  mediaUrl: string,
-  type: 'audio' | 'video'
-): JSX.Element => {
+export const getMediaPreview = (mediaUrl: string, type: 'audio' | 'video'): JSX.Element => {
   if (!mediaUrl) return <></>;
-
+  
   if (type === 'audio') {
     return (
       <audio controls className="w-full mt-2">
