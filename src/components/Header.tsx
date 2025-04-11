@@ -1,8 +1,10 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { PenIcon, CalendarIcon, MessageCircleIcon } from "lucide-react";
+import { PenIcon, CalendarIcon, MessageCircleIcon, LogOutIcon } from "lucide-react";
 import { formatDate } from '@/utils/dateUtils';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   activeTab: 'journal' | 'calendar' | 'assistant';
@@ -10,6 +12,18 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignIn = () => {
+    navigate('/auth');
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   return (
     <header className="border-b border-border py-4 px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
       <div className="flex justify-between items-center max-w-7xl mx-auto">
@@ -52,10 +66,22 @@ const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           </Button>
         </nav>
         
-        <div className="hidden md:flex">
-          <Button variant="outline" size="sm">
-            Sign In
-          </Button>
+        <div className="hidden md:flex items-center gap-2">
+          {user ? (
+            <>
+              <span className="text-sm text-muted-foreground">
+                {user.email}
+              </span>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOutIcon className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleSignIn}>
+              Sign In
+            </Button>
+          )}
         </div>
       </div>
     </header>
