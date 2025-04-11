@@ -69,11 +69,8 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setEntries(journalEntries);
       } catch (error) {
         console.error("Error fetching journal entries:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load journal entries",
-          variant: "destructive"
-        });
+        // Use toast function directly without title and description properties
+        toast.error("Failed to load journal entries");
       } finally {
         setLoading(false);
       }
@@ -84,11 +81,8 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addEntry = async (entryData: Omit<JournalEntry, "id">) => {
     if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to save entries",
-        variant: "destructive"
-      });
+      // Fix toast usage
+      toast.error("You must be logged in to save entries");
       throw new Error("Not authenticated");
     }
 
@@ -117,22 +111,16 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return newEntry;
     } catch (error) {
       console.error("Error saving entry:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save journal entry",
-        variant: "destructive"
-      });
+      // Fix toast usage
+      toast.error("Failed to save journal entry");
       throw error;
     }
   };
 
   const updateEntry = async (updatedEntry: JournalEntry) => {
     if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to update entries",
-        variant: "destructive"
-      });
+      // Fix toast usage
+      toast.error("You must be logged in to update entries");
       throw new Error("Not authenticated");
     }
 
@@ -162,22 +150,16 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } catch (error) {
       console.error("Error updating entry:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update journal entry",
-        variant: "destructive"
-      });
+      // Fix toast usage
+      toast.error("Failed to update journal entry");
       throw error;
     }
   };
 
   const deleteEntry = async (id: string) => {
     if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to delete entries",
-        variant: "destructive"
-      });
+      // Fix toast usage
+      toast.error("You must be logged in to delete entries");
       throw new Error("Not authenticated");
     }
 
@@ -198,11 +180,8 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } catch (error) {
       console.error("Error deleting entry:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete journal entry",
-        variant: "destructive"
-      });
+      // Fix toast usage
+      toast.error("Failed to delete journal entry");
       throw error;
     }
   };

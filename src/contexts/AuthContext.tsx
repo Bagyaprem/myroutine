@@ -46,11 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error, data } = await supabase.auth.signInWithPassword({ 
         email, 
-        password,
-        options: {
-          // Don't redirect the browser to the URL we're already on
-          redirectTo: window.location.origin
-        }
+        password
+        // Removed the redirectTo option as it's not supported in this function
       });
       
       if (error) throw error;
@@ -74,9 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             full_name: fullName,
-          },
-          // Don't redirect the browser to the URL we're already on
-          redirectTo: window.location.origin
+          }
+          // Removed the redirectTo option as it's not supported in this way
         },
       });
       
