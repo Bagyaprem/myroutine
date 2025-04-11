@@ -16,6 +16,12 @@ interface Message {
   content: string;
 }
 
+// Modified interface to allow system role for sending to API
+interface ChatApiMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 const AIAssistant: React.FC = () => {
   const { entries } = useJournal();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -70,11 +76,12 @@ const AIAssistant: React.FC = () => {
     
     try {
       // Prepare message history for context
-      const messageHistory = messages.map(msg => ({
+      const messageHistory: ChatApiMessage[] = messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
       
+      // Add system message
       messageHistory.unshift({
         role: 'system',
         content: 'You are a helpful, empathetic journaling assistant. Your goal is to help the user reflect, process emotions, and grow through journaling. Keep responses concise, supportive, and thoughtful.'
