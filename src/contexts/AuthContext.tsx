@@ -25,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log("Auth state changed:", event);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -43,8 +44,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error, data } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password,
+        options: {
+          // Don't redirect the browser to the URL we're already on
+          redirectTo: window.location.origin
+        }
+      });
+      
       if (error) throw error;
+      
+      console.log("Sign in successful:", data);
     } catch (error: any) {
       toast({
         title: "Authentication error",
@@ -64,8 +75,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             full_name: fullName,
           },
+          // Don't redirect the browser to the URL we're already on
+          redirectTo: window.location.origin
         },
       });
+      
       if (error) throw error;
       
       toast({

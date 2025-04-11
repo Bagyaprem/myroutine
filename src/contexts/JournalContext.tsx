@@ -1,6 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getSimpleDate } from "@/utils/dateUtils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export interface JournalEntry {
   id: string;
@@ -17,85 +20,190 @@ interface JournalContextType {
   entries: JournalEntry[];
   currentEntry: JournalEntry | null;
   setCurrentEntry: (entry: JournalEntry | null) => void;
-  addEntry: (entry: Omit<JournalEntry, "id">) => void;
-  updateEntry: (entry: JournalEntry) => void;
-  deleteEntry: (id: string) => void;
+  addEntry: (entry: Omit<JournalEntry, "id">) => Promise<JournalEntry>;
+  updateEntry: (entry: JournalEntry) => Promise<void>;
+  deleteEntry: (id: string) => Promise<void>;
   getEntryForDate: (date: Date) => JournalEntry | undefined;
   loading: boolean;
 }
 
 const JournalContext = createContext<JournalContextType | undefined>(undefined);
 
-// Sample entries for demo purposes
-const sampleEntries: JournalEntry[] = [
-  {
-    id: "1",
-    date: new Date(2025, 3, 10), // April 10, 2025
-    title: "Finding Balance",
-    content: "Today I tried to balance work and personal time better. I took short breaks every hour and went for a walk during lunch. I felt more productive and less stressed as a result.",
-    tags: ["work", "self-care", "balance"],
-    type: "text"
-  },
-  {
-    id: "2",
-    date: new Date(2025, 3, 9), // April 9, 2025
-    title: "Morning Reflections",
-    content: "Woke up early today and spent some time meditating. It's amazing how just 10 minutes of quiet reflection can set a positive tone for the entire day.",
-    tags: ["meditation", "morning", "habits"],
-    type: "text"
-  },
-  {
-    id: "3",
-    date: new Date(2025, 3, 8), // April 8, 2025
-    title: "Creative Block",
-    content: "Struggled with creativity today. Started several projects but couldn't seem to focus or find inspiration. Need to remember that these phases are normal and temporary.",
-    tags: ["creativity", "challenges"],
-    type: "text"
-  }
-];
-
 export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [entries, setEntries] = useState<JournalEntry[]>(sampleEntries);
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [currentEntry, setCurrentEntry] = useState<JournalEntry | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const { user } = useAuth();
 
-  // In a real app, this would fetch entries from API/LocalStorage
+  // Fetch entries from Supabase when user is authenticated
   useEffect(() => {
-    // Simulate loading entries from storage
-    setLoading(true);
-    setTimeout(() => {
-      // In production, replace with actual data loading
-      setLoading(false);
-    }, 500);
-  }, []);
+    const fetchEntries = async () => {
+      if (!user) {
+        setEntries([]);
+        setLoading(false);
+        return;
+      }
 
-  const addEntry = (entryData: Omit<JournalEntry, "id">) => {
-    const newEntry: JournalEntry = {
-      ...entryData,
-      id: Date.now().toString()
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('journal_entries')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Transform data from database format to JournalEntry format
+        const journalEntries: JournalEntry[] = data.map(entry => ({
+          id: entry.id,
+          date: new Date(entry.created_at),
+          content: entry.content || "",
+          title: entry.title,
+          tags: entry.tags || [],
+          type: 'text',
+          mediaUrl: '',
+          summary: ''
+        }));
+
+        setEntries(journalEntries);
+      } catch (error) {
+        console.error("Error fetching journal entries:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load journal entries",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
     };
-    
-    setEntries(prev => [newEntry, ...prev]);
-    return newEntry;
-  };
 
-  const updateEntry = (updatedEntry: JournalEntry) => {
-    setEntries(prev => 
-      prev.map(entry => 
-        entry.id === updatedEntry.id ? updatedEntry : entry
-      )
-    );
-    
-    if (currentEntry?.id === updatedEntry.id) {
-      setCurrentEntry(updatedEntry);
+    fetchEntries();
+  }, [user]);
+
+  const addEntry = async (entryData: Omit<JournalEntry, "id">) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save entries",
+        variant: "destructive"
+      });
+      throw new Error("Not authenticated");
+    }
+
+    try {
+      // Insert entry into Supabase
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .insert({
+          user_id: user.id,
+          title: entryData.title,
+          content: entryData.content,
+          tags: entryData.tags
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create new entry with database ID
+      const newEntry: JournalEntry = {
+        ...entryData,
+        id: data.id
+      };
+      
+      setEntries(prev => [newEntry, ...prev]);
+      return newEntry;
+    } catch (error) {
+      console.error("Error saving entry:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save journal entry",
+        variant: "destructive"
+      });
+      throw error;
     }
   };
 
-  const deleteEntry = (id: string) => {
-    setEntries(prev => prev.filter(entry => entry.id !== id));
-    
-    if (currentEntry?.id === id) {
-      setCurrentEntry(null);
+  const updateEntry = async (updatedEntry: JournalEntry) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to update entries",
+        variant: "destructive"
+      });
+      throw new Error("Not authenticated");
+    }
+
+    try {
+      // Update entry in Supabase
+      const { error } = await supabase
+        .from('journal_entries')
+        .update({
+          title: updatedEntry.title,
+          content: updatedEntry.content,
+          tags: updatedEntry.tags,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', updatedEntry.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      setEntries(prev => 
+        prev.map(entry => 
+          entry.id === updatedEntry.id ? updatedEntry : entry
+        )
+      );
+      
+      if (currentEntry?.id === updatedEntry.id) {
+        setCurrentEntry(updatedEntry);
+      }
+    } catch (error) {
+      console.error("Error updating entry:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update journal entry",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
+  const deleteEntry = async (id: string) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to delete entries",
+        variant: "destructive"
+      });
+      throw new Error("Not authenticated");
+    }
+
+    try {
+      // Delete entry from Supabase
+      const { error } = await supabase
+        .from('journal_entries')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      setEntries(prev => prev.filter(entry => entry.id !== id));
+      
+      if (currentEntry?.id === id) {
+        setCurrentEntry(null);
+      }
+    } catch (error) {
+      console.error("Error deleting entry:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete journal entry",
+        variant: "destructive"
+      });
+      throw error;
     }
   };
 

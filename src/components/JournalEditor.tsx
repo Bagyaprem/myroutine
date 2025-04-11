@@ -13,11 +13,13 @@ import {
   PlusIcon, 
   Trash2Icon,
   MicIcon,
-  VideoIcon
+  VideoIcon,
+  Loader2Icon
 } from 'lucide-react';
 import { formatDate } from '@/utils/dateUtils';
 import { generateJournalPrompt } from '@/lib/aiService';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface JournalEditorProps {
   isNew?: boolean;
@@ -29,6 +31,7 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
   onSave 
 }) => {
   const { currentEntry, addEntry, updateEntry, deleteEntry } = useJournal();
+  const { user } = useAuth();
   
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -90,6 +93,11 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
       return;
     }
 
+    if (!user) {
+      toast.error("You must be logged in to save entries");
+      return;
+    }
+
     setIsLoading(true);
     
     try {
@@ -102,13 +110,13 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
       };
       
       if (currentEntry && !isNew) {
-        updateEntry({
+        await updateEntry({
           ...currentEntry,
           ...entryData
         });
         toast.success("Journal entry updated");
       } else {
-        addEntry(entryData);
+        await addEntry(entryData);
         toast.success("New journal entry created");
       }
       
@@ -121,11 +129,19 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (currentEntry && !isNew) {
-      deleteEntry(currentEntry.id);
-      toast.success("Journal entry deleted");
-      if (onSave) onSave();
+      setIsLoading(true);
+      try {
+        await deleteEntry(currentEntry.id);
+        toast.success("Journal entry deleted");
+        if (onSave) onSave();
+      } catch (error) {
+        console.error('Error deleting entry:', error);
+        toast.error("Failed to delete journal entry");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -238,8 +254,13 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
             variant="outline"
             onClick={handleDelete}
             className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            disabled={isLoading}
           >
-            <Trash2Icon className="h-4 w-4 mr-2" />
+            {isLoading ? (
+              <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2Icon className="h-4 w-4 mr-2" />
+            )}
             Delete
           </Button>
         )}
@@ -251,7 +272,11 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
             disabled={isLoading}
             className="px-6"
           >
-            <SaveIcon className="h-4 w-4 mr-2" />
+            {isLoading ? (
+              <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <SaveIcon className="h-4 w-4 mr-2" />
+            )}
             {isLoading ? "Saving..." : "Save"}
           </Button>
         </div>
