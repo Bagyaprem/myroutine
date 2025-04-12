@@ -17,6 +17,22 @@ export interface JournalEntry {
   wallpaper?: string;
 }
 
+// Define database journal entry type to match what's in Supabase
+interface DbJournalEntry {
+  id: string;
+  user_id: string;
+  content: string;
+  title: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  mood: string;
+  type?: 'text' | 'audio' | 'video';
+  media_url?: string;
+  summary?: string;
+  wallpaper?: string;
+}
+
 interface JournalContextType {
   entries: JournalEntry[];
   currentEntry: JournalEntry | null;
@@ -67,7 +83,7 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (error) throw error;
 
         // Transform data from database format to JournalEntry format
-        const journalEntries: JournalEntry[] = data.map(entry => ({
+        const journalEntries: JournalEntry[] = data.map((entry: DbJournalEntry) => ({
           id: entry.id,
           date: new Date(entry.created_at),
           content: entry.content || "",

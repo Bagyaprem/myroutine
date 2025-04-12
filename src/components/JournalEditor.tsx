@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useJournal, JournalEntry } from '@/contexts/JournalContext';
 import { Button } from "@/components/ui/button";
@@ -59,7 +58,6 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
   const recorderRef = useRef<MediaRecorderHelper | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   
-  // Initialize form with current entry data if editing
   useEffect(() => {
     if (currentEntry && !isNew) {
       setTitle(currentEntry.title);
@@ -69,7 +67,6 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
       setMediaUrl(currentEntry.mediaUrl || "");
       setWallpaper(currentEntry.wallpaper || "gradient-blue");
     } else {
-      // Reset form if creating new entry
       setTitle("");
       setContent("");
       setTags([]);
@@ -79,7 +76,6 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   }, [currentEntry, isNew]);
   
-  // Get a writing prompt when creating a new entry
   useEffect(() => {
     const fetchPrompt = async () => {
       if (isNew && !prompt) {
@@ -121,24 +117,24 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
     try {
       recorderRef.current = new MediaRecorderHelper({
         onDataAvailable: (blob) => {
-          // This gets called with chunks during recording
           console.log("Data chunk available", blob.size);
         },
         onStart: () => {
           setIsRecording(true);
           toast.info(`${type === 'audio' ? 'Audio' : 'Video'} recording started`);
           
-          // If video, show preview
-          if (type === 'video' && videoPreviewRef.current && recorderRef.current?.stream) {
-            videoPreviewRef.current.srcObject = recorderRef.current.stream;
-            videoPreviewRef.current.play();
+          if (type === 'video' && videoPreviewRef.current && recorderRef.current) {
+            const stream = recorderRef.current.getStream();
+            if (stream) {
+              videoPreviewRef.current.srcObject = stream;
+              videoPreviewRef.current.play();
+            }
           }
         },
         onStop: () => {
           setIsRecording(false);
           toast.info(`${type === 'audio' ? 'Audio' : 'Video'} recording stopped`);
           
-          // Clear video preview
           if (videoPreviewRef.current) {
             videoPreviewRef.current.srcObject = null;
           }
@@ -242,6 +238,13 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   };
 
+  const renderMediaPreview = () => {
+    if (!mediaUrl || isRecording) return null;
+    if (entryType === 'text') return null;
+    
+    return getMediaPreview(mediaUrl, entryType as 'audio' | 'video');
+  };
+
   return (
     <div 
       className={`space-y-6 animate-fade-up p-6 rounded-lg border ${wallpaper === 'gradient-blue' ? 'bg-journal-blue/30' : 
@@ -323,11 +326,7 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
         </div>
       )}
 
-      {mediaUrl && !isRecording && (
-        <div className="rounded-lg overflow-hidden border">
-          {getMediaPreview(mediaUrl, entryType)}
-        </div>
-      )}
+      {renderMediaPreview()}
 
       <div className="space-y-4">
         <div className="space-y-2">

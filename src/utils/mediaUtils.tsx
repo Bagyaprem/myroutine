@@ -9,7 +9,8 @@ interface MediaRecorderOptions {
 
 export class MediaRecorderHelper {
   private mediaRecorder: MediaRecorder | null = null;
-  private stream: MediaStream | null = null;
+  // Change from private to protected so it can be accessed in JournalEditor
+  protected stream: MediaStream | null = null;
   private chunks: Blob[] = [];
   private options: MediaRecorderOptions;
 
@@ -89,6 +90,11 @@ export class MediaRecorderHelper {
     return new Blob(this.chunks, { 
       type: this.mediaRecorder?.mimeType || 'audio/webm' 
     });
+  }
+
+  // Add a method to safely get the stream
+  getStream(): MediaStream | null {
+    return this.stream;
   }
 }
 
