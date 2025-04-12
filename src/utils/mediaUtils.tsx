@@ -108,9 +108,17 @@ export const uploadMediaToStorage = async (
     // Return early for text type since there's no file to upload
     if (type === 'text') return '';
     
+    // Make sure we have valid data to upload
+    if (!file || file.size === 0) {
+      console.error('No valid file data to upload');
+      return '';
+    }
+    
     const { supabase } = await import('@/integrations/supabase/client');
     const fileExt = type === 'audio' ? 'webm' : 'mp4';
     const fileName = `${userId}/${type}_${Date.now()}.${fileExt}`;
+    
+    console.log(`Uploading ${type} file to storage:`, fileName);
     
     const { error, data } = await supabase.storage
       .from('journal-media')
@@ -119,12 +127,17 @@ export const uploadMediaToStorage = async (
         upsert: false
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error(`Error details:`, error);
+      throw error;
+    }
     
+    // Get public URL after successful upload
     const { data: { publicUrl } } = supabase.storage
       .from('journal-media')
       .getPublicUrl(fileName);
       
+    console.log(`Upload successful. Public URL:`, publicUrl);
     return publicUrl;
   } catch (error) {
     console.error(`Error uploading ${type}:`, error);

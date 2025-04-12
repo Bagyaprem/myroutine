@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getSimpleDate } from "@/utils/dateUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,6 +80,8 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .order('created_at', { ascending: false });
 
         if (error) throw error;
+        
+        console.log("Fetched entries:", data);
 
         // Transform data from database format to JournalEntry format
         const journalEntries: JournalEntry[] = data.map((entry: DbJournalEntry) => ({
@@ -114,6 +115,17 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      console.log("Adding entry with data:", {
+        user_id: user.id,
+        title: entryData.title,
+        content: entryData.content,
+        tags: entryData.tags,
+        type: entryData.type,
+        media_url: entryData.mediaUrl,
+        summary: entryData.summary,
+        wallpaper: entryData.wallpaper || 'gradient-blue'
+      });
+      
       // Insert entry into Supabase
       const { data, error } = await supabase
         .from('journal_entries')
@@ -130,7 +142,12 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error:", error);
+        throw error;
+      }
+      
+      console.log("Entry saved successfully:", data);
 
       // Create new entry with database ID
       const newEntry: JournalEntry = {
@@ -154,6 +171,8 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      console.log("Updating entry:", updatedEntry);
+      
       // Update entry in Supabase
       const { error } = await supabase
         .from('journal_entries')
@@ -170,7 +189,12 @@ export const JournalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .eq('id', updatedEntry.id)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error:", error);
+        throw error;
+      }
+      
+      console.log("Entry updated successfully");
       
       setEntries(prev => 
         prev.map(entry => 

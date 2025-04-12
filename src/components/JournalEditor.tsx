@@ -54,6 +54,7 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
   const [entryType, setEntryType] = useState<'text' | 'audio' | 'video'>('text');
   const [isRecording, setIsRecording] = useState(false);
   const [wallpaper, setWallpaper] = useState<string>("gradient-blue");
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   
   const recorderRef = useRef<MediaRecorderHelper | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
@@ -66,6 +67,7 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
       setEntryType(currentEntry.type);
       setMediaUrl(currentEntry.mediaUrl || "");
       setWallpaper(currentEntry.wallpaper || "gradient-blue");
+      setRecordedBlob(null);
     } else {
       setTitle("");
       setContent("");
@@ -73,6 +75,7 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
       setEntryType('text');
       setMediaUrl("");
       setWallpaper("gradient-blue");
+      setRecordedBlob(null);
     }
   }, [currentEntry, isNew]);
   
@@ -118,16 +121,22 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
       recorderRef.current = new MediaRecorderHelper({
         onDataAvailable: (blob) => {
           console.log("Data chunk available", blob.size);
+          if (blob.size > 0) {
+            setRecordedBlob(blob);
+          }
         },
         onStart: () => {
           setIsRecording(true);
+          setRecordedBlob(null);
           toast.info(`${type === 'audio' ? 'Audio' : 'Video'} recording started`);
           
           if (type === 'video' && videoPreviewRef.current && recorderRef.current) {
             const stream = recorderRef.current.getStream();
             if (stream) {
               videoPreviewRef.current.srcObject = stream;
-              videoPreviewRef.current.play();
+              videoPreviewRef.current.play().catch(err => {
+                console.error("Error playing video:", err);
+              });
             }
           }
         },
@@ -137,6 +146,11 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
           
           if (videoPreviewRef.current) {
             videoPreviewRef.current.srcObject = null;
+          }
+          
+          const finalBlob = recorderRef.current?.getBlob();
+          if (finalBlob) {
+            setRecordedBlob(finalBlob);
           }
         }
       });
@@ -192,15 +206,23 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
     setIsLoading(true);
     
     try {
+      let finalMediaUrl = mediaUrl;
+      if (recordedBlob && !mediaUrl) {
+        console.log("Uploading recorded media...");
+        finalMediaUrl = await uploadMediaToStorage(recordedBlob, user.id, entryType);
+      }
+      
       const entryData = {
         title,
         content,
         date: new Date(),
         tags,
         type: entryType,
-        mediaUrl,
+        mediaUrl: finalMediaUrl,
         wallpaper
       };
+      
+      console.log("Saving entry with data:", entryData);
       
       if (currentEntry && !isNew) {
         await updateEntry({
@@ -239,9 +261,18 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
   };
 
   const renderMediaPreview = () => {
-    if (!mediaUrl || isRecording) return null;
+    if (isRecording) return null;
     
-    return getMediaPreview(mediaUrl, entryType);
+    if (recordedBlob && !mediaUrl) {
+      const tempUrl = URL.createObjectURL(recordedBlob);
+      return getMediaPreview(tempUrl, entryType);
+    }
+    
+    if (mediaUrl) {
+      return getMediaPreview(mediaUrl, entryType);
+    }
+    
+    return null;
   };
 
   return (
@@ -308,7 +339,7 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
         </div>
       )}
 
-      {entryType === 'video' && videoPreviewRef.current && (
+      {entryType === 'video' && isRecording && (
         <div className="relative rounded-lg overflow-hidden border bg-black">
           <video 
             ref={videoPreviewRef} 
