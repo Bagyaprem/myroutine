@@ -102,9 +102,12 @@ export class MediaRecorderHelper {
 export const uploadMediaToStorage = async (
   file: Blob, 
   userId: string, 
-  type: 'audio' | 'video'
+  type: 'audio' | 'video' | 'text'
 ): Promise<string> => {
   try {
+    // Return early for text type since there's no file to upload
+    if (type === 'text') return '';
+    
     const { supabase } = await import('@/integrations/supabase/client');
     const fileExt = type === 'audio' ? 'webm' : 'mp4';
     const fileName = `${userId}/${type}_${Date.now()}.${fileExt}`;
