@@ -240,9 +240,8 @@ const JournalEditor: React.FC<JournalEditorProps> = ({
 
   const renderMediaPreview = () => {
     if (!mediaUrl || isRecording) return null;
-    if (entryType === 'text') return null;
     
-    return getMediaPreview(mediaUrl, entryType as 'audio' | 'video');
+    return getMediaPreview(mediaUrl, entryType);
   };
 
   return (

@@ -1,4 +1,6 @@
 
+import React from 'react';
+
 interface MediaRecorderOptions {
   onDataAvailable: (data: Blob) => void;
   onStart?: () => void;
@@ -9,7 +11,6 @@ interface MediaRecorderOptions {
 
 export class MediaRecorderHelper {
   private mediaRecorder: MediaRecorder | null = null;
-  // Change from private to protected so it can be accessed in JournalEditor
   protected stream: MediaStream | null = null;
   private chunks: Blob[] = [];
   private options: MediaRecorderOptions;
@@ -128,8 +129,9 @@ export const uploadMediaToStorage = async (
   }
 };
 
-export const getMediaPreview = (mediaUrl: string, type: 'audio' | 'video'): JSX.Element => {
-  if (!mediaUrl) return <></>;
+// Modify this function to handle all media types including 'text'
+export const getMediaPreview = (mediaUrl: string, type: 'audio' | 'video' | 'text'): JSX.Element => {
+  if (!mediaUrl || type === 'text') return <></>;
   
   if (type === 'audio') {
     return (
